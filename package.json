@@ -1,0 +1,20 @@
+{
+  "name": "Larium",
+  "version": "1.0.0",
+  "description": "Telegram bot for anime episodes notifications",
+  "main": "index.js",
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "keywords": [],
+  "author": "Hkmori15",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.7.5",
+    "grammy": "^1.29.0",
+    "mongoose": "^8.5.4"
+  },
+  "devDependencies": {
+    "dotenv": "^16.4.5"
+  }
+}
