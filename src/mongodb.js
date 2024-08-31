@@ -17,6 +17,8 @@ const subscriptionSchema = new mongoose.Schema({
   lastEpisode: Number,
 });
 
+subscriptionSchema.index({ userId: 1, animeId: 1 }, { unique: true });
+
 const Subscription = mongoose.model('Subscription', subscriptionSchema);
 
 module.exports = { Subscription };

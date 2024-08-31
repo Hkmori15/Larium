@@ -28,6 +28,15 @@ bot.command('start', ctx => {
 
   Пример:
   /unsubscribe Этот глупый свин не понимает мечту девочки зайки
+
+  Чтобы посмотреть список отслеживаемых аниме, используй команду /list.
+
+  Чтобы получить информацию об аниме, используй команду /info, вот так:
+
+  /info Название аниме
+
+  Пример:
+  /info Этот глупый свин не понимает мечту девочки зайки
   
   Попробуй прямо сейчас! ⛩`;
 
@@ -44,12 +53,22 @@ async function checkAnimeExists(animeName) {
       },
 
       headers: {
-        'User-Agent': 'Larium/1.0',
+        'User-Agent': 'Larium/1.1',
       },
     });
 
     if (response.data.length > 0) {
-      return response.data[0];
+      const animeId = response.data[0].id;
+      const animeDetails = await axios.get(
+        `https://shikimori.one/api/animes/${animeId}`,
+        {
+          headers: {
+            'User-Agent': 'Larium/1.1',
+          },
+        }
+      );
+
+      return animeDetails.data;
     }
 
     return null;
@@ -60,6 +79,37 @@ async function checkAnimeExists(animeName) {
   }
 }
 
+bot.command('info', async ctx => {
+  const animeName = ctx.message.text.split(' ').slice(1).join(' ');
+
+  try {
+    const anime = await checkAnimeExists(animeName);
+
+    if (!anime) {
+      return ctx.reply('Аниме не найдено. Проверьте правильность названия.');
+    }
+
+    const genres = anime.genres
+      .map(genre => genre.russian || genre.name)
+      .join(', ');
+
+    const infoMessage = `Информация об аниме "${anime.russian || anime.name}":
+    
+    Количество серий: ${anime.episodes || 'Неизвестно'}
+    Жанры: ${genres || 'Не указаны'}
+    Описание: ${anime.description || 'Описание отсутствует'}Рейтинг: ${
+      anime.score || 'Нет рейтинга'
+    }`;
+
+    ctx.reply(infoMessage);
+  } catch (error) {
+    console.error('Error fetching anime info', error);
+    ctx.reply(
+      'Произошли технические шоколадки при получении информации об аниме. Пожалуйста, попробуйте позже.'
+    );
+  }
+});
+
 bot.command('subscribe', async ctx => {
   const animeName = ctx.message.text.split(' ').slice(1).join(' ');
   const userId = ctx.from.id;
@@ -68,6 +118,20 @@ bot.command('subscribe', async ctx => {
 
   if (!anime) {
     return ctx.reply('Аниме не найдено. Проверьте правильность названия.');
+  }
+
+  // Check if the user is already subscribed
+  const existingSubscription = await Subscription.findOne({
+    userId,
+    animeId: anime.id,
+  });
+
+  if (existingSubscription) {
+    return ctx.reply(
+      `Вы уже отслеживаете выход новых серий аниме "${
+        anime.russian || anime.name
+      }".`
+    );
   }
 
   const subscription = new Subscription({
@@ -101,6 +165,30 @@ bot.command('unsubscribe', async ctx => {
   }
 });
 
+bot.command('list', async ctx => {
+  const userId = ctx.from.id;
+
+  try {
+    const subscriptions = await Subscription.find({ userId });
+
+    if (subscriptions.length === 0) {
+      return ctx.reply('Вы пока не отслеживаете ни одного аниме.');
+    }
+
+    const animeList = subscriptions
+      .map((sub, index) => `${index + 1}. ${sub.animeName}`)
+      .join('\n');
+
+    const message = `Вот список отслеживаемых вами аниме:\n\n${animeList}`;
+    ctx.reply(message);
+  } catch (error) {
+    console.error('Error fetching subscriptions', error);
+    ctx.reply(
+      'Произошли технические шоколадки при получении списка. Пожалуйста, попробуйте позже.'
+    );
+  }
+});
+
 async function checkNewEpisodes() {
   const subscription = await Subscription.find();
 
@@ -110,18 +198,28 @@ async function checkNewEpisodes() {
         `https://shikimori.one/api/animes/${sub.animeId}`,
         {
           headers: {
-            'User-Agent': 'Larium/1.0',
+            'User-Agent': 'Larium/1.1',
           },
         }
       );
 
       const anime = response.data;
 
+      if (anime.status === 'released') {
+        await Subscription.deleteOne({ _id: sub._id });
+        bot.api.sendMessage(
+          sub.userId,
+          `Аниме "${sub.animeName}" завершилось и была удалено из вашего списка отслеживания.`
+        );
+
+        continue;
+      }
+
       if (anime.episodes_aired > sub.lastEpisode) {
         const newEpisodes = anime.episodes_aired - sub.lastEpisode;
         bot.api.sendMessage(
           sub.userId,
-          `Вышла ${newEpisodes} новая серия по аниме "${sub.animeName}"!`
+          `Вышла ${newEpisodes} серия по аниме "${sub.animeName}"!`
         );
         sub.lastEpisode = anime.episodes_aired;
         await sub.save();
