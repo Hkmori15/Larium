@@ -97,9 +97,8 @@ bot.command('info', async ctx => {
     
     Количество серий: ${anime.episodes || 'Неизвестно'}
     Жанры: ${genres || 'Не указаны'}
-    Описание: ${anime.description || 'Описание отсутствует'}Рейтинг: ${
-      anime.score || 'Нет рейтинга'
-    }`;
+    Описание: ${anime.description || 'Описание отсутствует'}\n
+    Рейтинг: ${anime.score || 'Нет рейтинга'}`;
 
     ctx.reply(infoMessage);
   } catch (error) {
