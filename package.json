@@ -1,5 +1,5 @@
 {
-  "name": "Larium",
+  "name": "larium",
   "version": "1.1",
   "description": "Telegram bot for anime episodes notifications",
   "main": "index.js",
